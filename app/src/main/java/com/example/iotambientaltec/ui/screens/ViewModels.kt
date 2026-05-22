@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 val variableLabels = mapOf("temperature" to "Temperatura", "humidity" to "Humedad", "wind" to "Viento")
 fun unitFor(variable: String) = when (variable) { "temperature" -> "°C"; "humidity" -> "%"; else -> "km/h" }
 
-data class DashboardUiState(val loading: Boolean = true, val latest: List<EnvironmentalData> = emptyList(), val dayAverage: Double = 0.0, val max: QueryResult? = null, val min: QueryResult? = null, val error: String? = null)
+data class DashboardUiState(val loading: Boolean = true, val latest: List<EnvironmentalData> = emptyList(), val max: QueryResult? = null, val min: QueryResult? = null, val error: String? = null)
 class DashboardViewModel(private val repository: EnvironmentalRepository) : ViewModel() {
     private val _state = MutableStateFlow(DashboardUiState())
     val state: StateFlow<DashboardUiState> = _state
@@ -27,9 +27,7 @@ class DashboardViewModel(private val repository: EnvironmentalRepository) : View
     fun load() = viewModelScope.launch {
         runCatching {
             val latest = repository.getLatestData().first()
-            val today = latest.firstOrNull()?.date ?: DateUtils.today()
-            val allToday = repository.getDataByDateRange(today, today).first()
-            _state.value = DashboardUiState(false, latest, allToday.map { it.value }.average().takeIf { !it.isNaN() } ?: 0.0, repository.getHistoricalMax("temperature").first(), repository.getHistoricalMin("temperature").first(), if (latest.isEmpty()) "No hay datos ambientales disponibles." else null)
+            _state.value = DashboardUiState(false, latest, repository.getHistoricalMax("temperature").first(), repository.getHistoricalMin("temperature").first(), if (latest.isEmpty()) "No hay datos ambientales disponibles." else null)
         }.onFailure { _state.value = DashboardUiState(false, error = it.message ?: "Error desconocido") }
     }
 }
