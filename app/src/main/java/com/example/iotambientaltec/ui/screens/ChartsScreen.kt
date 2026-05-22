@@ -12,10 +12,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iotambientaltec.data.model.EnvironmentalData
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun ChartsScreen(factory: AppViewModelFactory) {
@@ -27,7 +30,6 @@ fun ChartsScreen(factory: AppViewModelFactory) {
         item { Text("Gráficos ambientales", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
         item { VariableDropdown(state.variable, vm::setVariable) }
         item { ChartCard("Evolución temporal - ${variableLabels[state.variable]}") { LineChart(selected) } }
-        item { ChartCard("Promedios diarios") { BarChart(state.data.filter { it.variable == state.variable }) } }
         item { ChartCard("Comparación entre variables (líneas traslapadas)") { ComparisonChart(comparison) } }
     }
 }
@@ -65,26 +67,16 @@ private fun LineChart(data: List<EnvironmentalData>) {
             val middle = data[data.lastIndex / 2]
             val last = data.last()
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(first.date, style = MaterialTheme.typography.labelSmall)
-                Text(middle.date, style = MaterialTheme.typography.labelSmall)
-                Text(last.date, style = MaterialTheme.typography.labelSmall)
+                Text(formatDateTimeLabel(first), style = MaterialTheme.typography.labelSmall)
+                Text(formatDateTimeLabel(middle), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center)
+                Text(formatDateTimeLabel(last), style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.End)
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "Dato mínimo: ${"%.2f".format(min)} | Dato máximo: ${"%.2f".format(max)} | Último dato: ${"%.2f".format(last.value)}",
+                "Rango de valores: ${"%.2f".format(min)} a ${"%.2f".format(max)} | Último registro: ${"%.2f".format(last.value)} (${formatDateTimeLabel(last)})",
                 style = MaterialTheme.typography.labelMedium
             )
         }
-    }
-}
-
-@Composable
-private fun BarChart(data: List<EnvironmentalData>) {
-    val grouped = data.groupBy { it.date }.toSortedMap().mapValues { it.value.map(EnvironmentalData::value).average() }.entries.takeLast(7)
-    Canvas(Modifier.fillMaxWidth().height(220.dp)) {
-        if (grouped.isEmpty()) return@Canvas
-        val max = grouped.maxOf { it.value }.toFloat(); val barWidth = size.width / (grouped.size * 1.5f)
-        grouped.forEachIndexed { i, e -> val h = (e.value.toFloat() / max) * size.height; drawRect(Color(0xFF1976D2), topLeft = Offset(i * barWidth * 1.5f + barWidth * .25f, size.height - h), size = androidx.compose.ui.geometry.Size(barWidth, h)) }
     }
 }
 
@@ -125,6 +117,21 @@ private fun ComparisonChart(data: List<EnvironmentalData>) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text("Escala compartida para comparar tendencias por fecha y valor.", style = MaterialTheme.typography.labelSmall)
+        val firstTimestamp = data.minByOrNull { it.timestamp }
+        val lastTimestamp = data.maxByOrNull { it.timestamp }
+        if (firstTimestamp != null && lastTimestamp != null) {
+            Text(
+                "Periodo analizado: ${formatDateTimeLabel(firstTimestamp)} a ${formatDateTimeLabel(lastTimestamp)}.",
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+        Text("Escala compartida: mínimo ${"%.2f".format(min)} y máximo ${"%.2f".format(max)}.", style = MaterialTheme.typography.labelSmall)
     }
+}
+
+private val chartDateTimeFormat = SimpleDateFormat("dd MMM HH:mm", Locale("es", "CR"))
+
+private fun formatDateTimeLabel(data: EnvironmentalData): String {
+    if (data.timestamp > 0L) return chartDateTimeFormat.format(data.timestamp)
+    return "${data.date} ${data.time}".trim()
 }
