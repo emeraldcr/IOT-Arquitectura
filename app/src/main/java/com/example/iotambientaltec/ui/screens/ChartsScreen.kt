@@ -17,13 +17,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iotambientaltec.data.model.EnvironmentalData
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 @Composable
 fun ChartsScreen(factory: AppViewModelFactory) {
     val vm: ChartsViewModel = viewModel(factory = factory)
     val state by vm.state.collectAsState()
-    val selected = state.data.filter { it.variable == state.variable }.sortedBy { it.date }.takeLast(48)
-    val comparison = state.data.sortedBy { it.date }.takeLast(144)
+    val selected = state.data.filter { it.variable == state.variable }.sortedBy { it.timestamp }.takeLast(192)
+    val comparison = state.data.sortedBy { it.timestamp }.takeLast(192)
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text("Gráficos ambientales", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
         item { VariableDropdown(state.variable, vm::setVariable) }
@@ -83,10 +85,14 @@ private fun DateAxisLabels(
     modifier: Modifier = Modifier,
     maxLabels: Int = 4
 ) {
+    val outputDateFormat = remember { SimpleDateFormat("dd MMM", Locale.US) }
+    val inputDateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.US) }
     val labels = remember(dates, maxLabels) {
         if (dates.isEmpty()) emptyList()
         else {
-            val unique = dates.distinct()
+            val unique = dates.distinct().map { rawDate ->
+                inputDateFormat.parse(rawDate)?.let(outputDateFormat::format) ?: rawDate
+            }
             if (unique.size <= maxLabels) unique
             else {
                 val steps = (maxLabels - 1).coerceAtLeast(1)
@@ -105,7 +111,8 @@ private fun DateAxisLabels(
                     text = date,
                     style = MaterialTheme.typography.labelSmall,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1
                 )
             }
         }
