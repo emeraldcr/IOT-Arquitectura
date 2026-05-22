@@ -27,7 +27,6 @@ fun DashboardScreen(factory: AppViewModelFactory) {
             val item = state.latest[index]
             MetricCard("Última ${variableLabels[item.variable] ?: item.variable}", "${"%.1f".format(item.value)} ${item.unit}", "${item.date} ${item.time} · ${item.sensorId}")
         }
-        item { MetricCard("Promedio general del día", "${"%.1f".format(state.dayAverage)}", "Promedio de todos los registros ambientales del día más reciente") }
         item { MetricCard("Máximo histórico (temperatura)", state.max?.let { "${"%.1f".format(it.value)} ${it.unit}" } ?: "Sin datos", state.max?.let { "${it.date} ${it.time}" } ?: "") }
         item { MetricCard("Mínimo histórico (temperatura)", state.min?.let { "${"%.1f".format(it.value)} ${it.unit}" } ?: "Sin datos", state.min?.let { "${it.date} ${it.time}" } ?: "") }
     }
