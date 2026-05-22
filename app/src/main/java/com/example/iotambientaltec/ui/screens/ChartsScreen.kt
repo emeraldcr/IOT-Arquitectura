@@ -22,8 +22,8 @@ import com.example.iotambientaltec.data.model.EnvironmentalData
 fun ChartsScreen(factory: AppViewModelFactory) {
     val vm: ChartsViewModel = viewModel(factory = factory)
     val state by vm.state.collectAsState()
-    val selected = state.data.filter { it.variable == state.variable }.takeLast(48)
-    val comparison = state.data.takeLast(144)
+    val selected = state.data.filter { it.variable == state.variable }.sortedBy { it.date }.takeLast(48)
+    val comparison = state.data.sortedBy { it.date }.takeLast(144)
     LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item { Text("Gráficos ambientales", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
         item { VariableDropdown(state.variable, vm::setVariable) }
@@ -46,8 +46,11 @@ private fun LineChart(data: List<EnvironmentalData>) {
     val min = minMax.first
     val max = minMax.second
     val range = (max - min).takeIf { it > 0 } ?: 1.0
+    val axisDates = remember(data) { data.map { it.date } }
 
     Column(Modifier.fillMaxWidth()) {
+        ValueScale(min = min, max = max)
+        Spacer(Modifier.height(4.dp))
         Canvas(Modifier.fillMaxWidth().height(220.dp)) {
             if (data.size < 2) return@Canvas
             val path = Path()
@@ -61,7 +64,7 @@ private fun LineChart(data: List<EnvironmentalData>) {
             drawLine(Color.Gray, Offset(0f, size.height), Offset(size.width, size.height), 2f)
         }
         if (data.isNotEmpty()) {
-            DateAxisLabels(dates = data.map { it.date })
+            DateAxisLabels(dates = axisDates)
             val last = data.last()
             Spacer(Modifier.height(6.dp))
             Text(
@@ -117,8 +120,11 @@ private fun ComparisonChart(data: List<EnvironmentalData>) {
     val min = allValues.minOrNull() ?: 0.0
     val max = allValues.maxOrNull() ?: 1.0
     val range = (max - min).takeIf { it > 0 } ?: 1.0
+    val timelineDates = remember(data) { data.sortedBy { it.date }.map { it.date } }
 
     Column(Modifier.fillMaxWidth()) {
+        ValueScale(min = min, max = max)
+        Spacer(Modifier.height(4.dp))
         Canvas(Modifier.fillMaxWidth().height(220.dp).background(Color(0xFFF8F9FA))) {
             groupedByVariable.entries.forEach { (variable, points) ->
                 if (points.size < 2) return@forEach
@@ -137,7 +143,7 @@ private fun ComparisonChart(data: List<EnvironmentalData>) {
 
         Spacer(Modifier.height(8.dp))
         DateAxisLabels(
-            dates = data.sortedBy { it.date }.map { it.date },
+            dates = timelineDates,
             modifier = Modifier.padding(bottom = 6.dp)
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -150,6 +156,24 @@ private fun ComparisonChart(data: List<EnvironmentalData>) {
             }
         }
         Spacer(Modifier.height(6.dp))
+        val latestValuesText = groupedByVariable.entries
+            .sortedBy { it.key }
+            .joinToString(" | ") { (variable, points) ->
+                val latest = points.lastOrNull()?.value ?: 0.0
+                "${variableLabels[variable] ?: variable}: ${"%.2f".format(latest)}"
+            }
+        Text("Últimos valores: $latestValuesText", style = MaterialTheme.typography.labelSmall)
+        Spacer(Modifier.height(4.dp))
         Text("Escala compartida para comparar tendencias por fecha y valor. Las fechas mostradas sirven como referencia del avance en días.", style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun ValueScale(min: Double, max: Double) {
+    val mid = (min + max) / 2.0
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Min: ${"%.2f".format(min)}", style = MaterialTheme.typography.labelSmall)
+        Text("Medio: ${"%.2f".format(mid)}", style = MaterialTheme.typography.labelSmall)
+        Text("Max: ${"%.2f".format(max)}", style = MaterialTheme.typography.labelSmall)
     }
 }
