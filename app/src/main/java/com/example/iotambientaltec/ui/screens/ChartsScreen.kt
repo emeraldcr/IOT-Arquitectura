@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.iotambientaltec.data.model.EnvironmentalData
@@ -27,7 +28,6 @@ fun ChartsScreen(factory: AppViewModelFactory) {
         item { Text("Gráficos ambientales", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) }
         item { VariableDropdown(state.variable, vm::setVariable) }
         item { ChartCard("Evolución temporal - ${variableLabels[state.variable]}") { LineChart(selected) } }
-        item { ChartCard("Promedios diarios") { BarChart(state.data.filter { it.variable == state.variable }) } }
         item { ChartCard("Comparación entre variables (líneas traslapadas)") { ComparisonChart(comparison) } }
     }
 }
@@ -61,14 +61,8 @@ private fun LineChart(data: List<EnvironmentalData>) {
             drawLine(Color.Gray, Offset(0f, size.height), Offset(size.width, size.height), 2f)
         }
         if (data.isNotEmpty()) {
-            val first = data.first()
-            val middle = data[data.lastIndex / 2]
+            DateAxisLabels(dates = data.map { it.date })
             val last = data.last()
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(first.date, style = MaterialTheme.typography.labelSmall)
-                Text(middle.date, style = MaterialTheme.typography.labelSmall)
-                Text(last.date, style = MaterialTheme.typography.labelSmall)
-            }
             Spacer(Modifier.height(6.dp))
             Text(
                 "Dato mínimo: ${"%.2f".format(min)} | Dato máximo: ${"%.2f".format(max)} | Último dato: ${"%.2f".format(last.value)}",
@@ -78,13 +72,40 @@ private fun LineChart(data: List<EnvironmentalData>) {
     }
 }
 
+
+
 @Composable
-private fun BarChart(data: List<EnvironmentalData>) {
-    val grouped = data.groupBy { it.date }.toSortedMap().mapValues { it.value.map(EnvironmentalData::value).average() }.entries.takeLast(7)
-    Canvas(Modifier.fillMaxWidth().height(220.dp)) {
-        if (grouped.isEmpty()) return@Canvas
-        val max = grouped.maxOf { it.value }.toFloat(); val barWidth = size.width / (grouped.size * 1.5f)
-        grouped.forEachIndexed { i, e -> val h = (e.value.toFloat() / max) * size.height; drawRect(Color(0xFF1976D2), topLeft = Offset(i * barWidth * 1.5f + barWidth * .25f, size.height - h), size = androidx.compose.ui.geometry.Size(barWidth, h)) }
+private fun DateAxisLabels(
+    dates: List<String>,
+    modifier: Modifier = Modifier,
+    maxLabels: Int = 4
+) {
+    val labels = remember(dates, maxLabels) {
+        if (dates.isEmpty()) emptyList()
+        else {
+            val unique = dates.distinct()
+            if (unique.size <= maxLabels) unique
+            else {
+                val steps = (maxLabels - 1).coerceAtLeast(1)
+                (0..steps).map { step ->
+                    val idx = (step * (unique.lastIndex.toFloat() / steps)).toInt()
+                    unique[idx]
+                }.distinct()
+            }
+        }
+    }
+
+    if (labels.isNotEmpty()) {
+        Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            labels.forEach { date ->
+                Text(
+                    text = date,
+                    style = MaterialTheme.typography.labelSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
     }
 }
 
@@ -115,6 +136,10 @@ private fun ComparisonChart(data: List<EnvironmentalData>) {
         }
 
         Spacer(Modifier.height(8.dp))
+        DateAxisLabels(
+            dates = data.sortedBy { it.date }.map { it.date },
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             groupedByVariable.keys.forEach { variable ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -125,6 +150,6 @@ private fun ComparisonChart(data: List<EnvironmentalData>) {
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text("Escala compartida para comparar tendencias por fecha y valor.", style = MaterialTheme.typography.labelSmall)
+        Text("Escala compartida para comparar tendencias por fecha y valor. Las fechas mostradas sirven como referencia del avance en días.", style = MaterialTheme.typography.labelSmall)
     }
 }
